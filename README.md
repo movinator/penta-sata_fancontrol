@@ -31,7 +31,8 @@ _The bad news:_ any linux has its own dtb-handling - each of them
   If both values are set to *on* you're fine. If not, change them to **on**.
 * **armbian** uses overlays at `/boot/dtb/rockchip/overlay`, but does not
   provide an overlay for pwm modules.
-  compile provided file `rockchip-pwm-gpio.dts` with:
+  Provided overlay was written by [PetrozPL](https://forum.armbian.com/topic/15341-rock-pi4-pwm-control-no-overlay/?do=findComment&comment=109579)
+  compile it with:
   ```
   dts -O dtb -o rockchip-pwm-gpio.dtbo -b -0 -@ rockchip-pwm-gpio.dts
   ```
