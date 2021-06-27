@@ -18,30 +18,37 @@ Using overlays break boot process.
 
 When the driver was ready and running, I found out, that it has no dependencies,
 so that it may run on any linux system.
+
 **That's the good news.**
+
 _The bad news:_ any linux has its own dtb-handling - each of them
     (of cause) incompatible with others.
 
 ## Preparation
 
-* **debian/ubuntu** use `/boot/hw_intfc.conf` to configure hardware modules.
+* **debian/ubuntu**
+
+  uses `/boot/hw_intfc.conf` to configure hardware modules.
   Search for lines like:
   - `intfc:pwm0=on/off`
   - `intfc:pwm1=on/off`
   If both values are set to *on* you're fine. If not, change them to **on**.
-* **armbian** uses overlays at `/boot/dtb/rockchip/overlay`, but does not
+* **armbian**
+
+  uses overlays at `/boot/dtb/rockchip/overlay`, but does not
   provide an overlay for pwm modules.
   Provided overlay was written by [PetrozPL](https://forum.armbian.com/topic/15341-rock-pi4-pwm-control-no-overlay/?do=findComment&comment=109579)
   compile it with:
   ```
   dts -O dtb -o rockchip-pwm-gpio.dtbo -b -0 -@ rockchip-pwm-gpio.dts
   ```
-  and copy it to `/boot/dtb/rockchip/overlay`
-  Enable that overlay by changing `/boot/armbianEnv.txt`
-  Look for a line like: `overlay_prefix=rockchip`
-  Add a line after that line: `overlays=pwm-gpio`
+  - copy it to `/boot/dtb/rockchip/overlay`
+  - Enable that overlay by changing `/boot/armbianEnv.txt`
+  - Look for a line like: `overlay_prefix=rockchip`
+  - Add a line after that line: `overlays=pwm-gpio`
 
 * **libreELEC**
+
   LE does not support dtb-overlays, nor does it support configurable
   hardware modules.
   So you have to patch the original dtb file:
@@ -53,7 +60,7 @@ _The bad news:_ any linux has its own dtb-handling - each of them
 
   3. load dts file in your favorite editor and search for "pwm@ff42" and you'll
      find several matching sections like this:
-```
+    ```
        pwm@ff420000 {
             compatible = "rockchip,rk3399-pwm\0rockchip,rk3288-pwm";
             reg = < 0x00 0xff420000 0x00 0x10 >;
@@ -77,7 +84,7 @@ _The bad news:_ any linux has its own dtb-handling - each of them
             status = "disabled";
             phandle = < 0xf7 >;
             };
-```
+    ```
 
   4. replace line _status = "disabled"_ with line _status = "okay"_
 
@@ -86,15 +93,18 @@ _The bad news:_ any linux has its own dtb-handling - each of them
   6. copy file back to LE - to a writable directory
 
   7. compile dts file (on your LE) into dtb with this command:
-      `dtc -O dtb -o rk3399-rock-pi-4a.dtb -b O -@ rk3399-rock-pi-4a.dts`
+    ```
+    dtc -O dtb -o rk3399-rock-pi-4a.dtb -b O -@ rk3399-rock-pi-4a.dts
+    ```
 
   8. copy compiled binary to /flash overwriting the original dtb file
 
 * **slackware**
+
   slackware does not have overlay support, so try to follow instructions from LE
   Instead of `/flash` use `/boot`
 
-**Note:** changes at dtb require reboot to become active
+  **Note:** changes at dtb require reboot to become active
 
 ## Installation
 
