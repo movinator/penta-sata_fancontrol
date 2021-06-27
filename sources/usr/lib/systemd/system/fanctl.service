@@ -1,0 +1,9 @@
+[Unit]
+Description=fanctl - provides temperature based fan control using hardware pwm
+
+[Service]
+ExecStart=/usr/sbin/fanctl
+
+[Install]
+WantedBy=multi-user.target
+

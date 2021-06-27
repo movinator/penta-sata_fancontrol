@@ -1,0 +1,120 @@
+#!/usr/bin/python3
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2021 movinator (movinator@github.com)
+#
+# project: support for penta-sata-tower from radxa
+# purpose: as radxa uses dependencies that I couldn't port to LE
+#          I wrote this class to offer temperature controlled fan control
+#          and support of top panel button
+import os
+import glob
+import time
+import PWM
+import misc
+import Button
+import subprocess
+import syslog
+from multiprocessing import Process, Value
+
+
+class MainControl:
+    def __init__(self, p):
+        self.cfg = misc.Config(p)
+        self.cpu = misc.Sensor(0)
+        self.gpu = misc.Sensor(1)
+        self.pb  = Button.PushButton(146)
+        self.fc  = misc.FanControl(self.cpu_temperature
+                                 , self.hdd_temperature
+                                 , self.cfg.get_cpu_temps()
+                                 , self.cfg.get_hdd_temps()
+                                 , self.cfg.get_speeds()
+                                 , 1)
+        self.flag    = Value('i', 0)
+        self.key     = Value('i', 0)
+        if os.path.exists('/tmp/temps/sda'):
+            drives       = glob.glob('/tmp/temps/sd?')
+            self.hdd     = []
+            for d in drives:
+                self.hdd.append(misc.HDD_Temp(d))
+        else:
+            drives       = glob.glob('/dev/sd?')
+            self.hdd     = []
+            for d in drives:
+                self.hdd.append(misc.HDD_Sensor(d))
+
+
+    def cpu_temperature(self):
+        t0 = self.cpu.read_temperature()
+        t1 = self.gpu.read_temperature()
+        return max(t0, t1)
+
+
+    def hdd_temperature(self):
+        t0 = 0
+        for s in self.hdd:
+            t = s.read_temperature()
+            t0 = max(t0, t)
+        return t0
+
+
+    def read_key(self):
+        while True:
+            self.key.value = self.pb.read_key()
+            syslog.syslog('received key with code #' + str(self.key.value))
+            time.sleep(1)
+
+
+    def execute(self, what):
+        syslog.syslog('should execute >' + str(what) + '<')
+        if what[0] == '/':
+            if os.path.exists(what):
+                syslog.syslog('ok, >' + str(what) + '< exists at filesystem, execute it')
+                subprocess.call(what)
+        else:
+            try:
+                m = getattr(self, what)
+                syslog.syslog('ok, >' + str(what) + '< found as internal python function. call it now')
+                m()
+            except AttributeError:
+                pass
+
+
+    def toggle_fan_speed(self):
+        if self.flag.value == 0:
+           self.flag.value = 1
+        else:
+           self.flag.value = 0
+
+
+    def respond2button(self):
+        while True:
+            if self.key.value == 1:
+                syslog.syslog('recognized click from top-panel button')
+                self.execute(self.cfg.get_click())
+            elif self.key.value == 2:
+                syslog.syslog('recognized double-click from top-panel button')
+                self.execute(self.cfg.get_doubleclick())
+            elif self.key.value == 99:
+                syslog.syslog('recognized long buttonpress from top-panel button')
+                self.execute(self.cfg.get_pressed())
+            self.key.value = 0
+            time.sleep(1)
+
+
+    def run(self):
+        p0 = Process(target=self.read_key)
+        p1 = Process(target=self.fc.control_loop, args=(self.flag, ))
+        p2 = Process(target=self.respond2button)
+
+        p0.start()
+        p1.start()
+        p2.start()
+        p0.join()
+        p1.join()
+        p2.join()
+
+
+if __name__ == '__main__':
+    MainControl('/etc/rockpi-sata.conf').run()
+
